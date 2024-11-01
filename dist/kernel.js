@@ -267,6 +267,8 @@ g3d.Tube = async (args, env) => {
     coordinates = coordinates.normal();
   }
 
+
+
   /**
    * @type {env.material}}
    */  
@@ -297,57 +299,45 @@ g3d.Tube = async (args, env) => {
     
   });
 
-  if (coordinates.length == 2 && false) {
-    env.local.simple = true;
 
-    const p2 = new THREE.Vector3(...coordinates[0]);
-    const p1 = new THREE.Vector3(...coordinates[1]);
-    //direction
-    const dp = p2.clone().addScaledVector(p1, -1);
 
-    const geometry = new THREE.CylinderGeometry(radius, radius, dp.length(), 32, 1);
+  if (env.hasOwnProperty("vertices")) {
+    /*const coordinates = env.vertices.position;
+    const length = Math.floor(coordinates.length / 3);
+
+    let a = await interpretate(args[0], env);
+
+    if (Array.isArray(a[0])) { //nested
+
+    } else {
+
+    }
+
+    const array = a.map((index) => {
+      const indexx = 3*(index - 1);
+      return (new THREE.Vector3(coordinates[indexx], coordinates[indexx+1], coordinates[indexx+2]));
+    });
+    
+    const path = new THREE.CatmullRomCurve3(array, false);
+    const geometry = new THREE.TubeGeometry( path, Math.max(20, 4 * array.length), radius, 16, false );*/
+
+    console.error('Tube inside GraphicsComplex is not supported');
+
+
+  } else {
+    const array = coordinates.map((el) => new THREE.Vector3(...el));
+    const path = new THREE.CatmullRomCurve3(array, false);
+    const geometry = new THREE.TubeGeometry( path, Math.max(20, 4 * array.length), radius, 16, false );
 
     const mesh = new THREE.Mesh(geometry, material);
 
-    var HALF_PI = Math.PI * .5;
-    var position  = p1.clone().add(p2).divideScalar(2);
-  
-    var orientation = new THREE.Matrix4();//a new orientation matrix to offset pivot
-    var offsetRotation = new THREE.Matrix4();//a matrix to fix pivot rotation
-    orientation.lookAt(p1,p2,new THREE.Vector3(0,1,0));//look at destination
-    offsetRotation.makeRotationX(HALF_PI);//rotate 90 degs on X
-    orientation.multiply(offsetRotation);//combine orientation with rotation transformations
-    
-    mesh.applyMatrix4(orientation);
-  
-  
-    //group.position=position;    
-  
-  
-    //translate its center to the middle target point
-    mesh.position.addScaledVector(position, 1);
-
     env.mesh.add(mesh);
-
+    env.local.tube = mesh;
+  
     geometry.dispose();
-    material.dispose();
-  
-    return mesh;
-  }
+  } 
 
-  const array = coordinates.map((el) => new THREE.Vector3(...el));
 
-  const path = new THREE.CatmullRomCurve3(array, false);
-
-  const geometry = new THREE.TubeGeometry( path, Math.max(20, 4 * array.length), radius, 16, false );
-  
-
-  const mesh = new THREE.Mesh(geometry, material);
-
-  env.mesh.add(mesh);
-  env.local.tube = mesh;
-
-  geometry.dispose();
   material.dispose();
 
 
@@ -1641,6 +1631,7 @@ g3d.GraphicsComplex = async (args, env) => {
   //local storage
   copy.vertices = {
     //geometry: new THREE.BufferGeometry(),
+    //coordinates: vertices,
     position: new THREE.BufferAttribute( vertices, 3 ),
     colored: false,
     handlers: []
@@ -1687,6 +1678,7 @@ g3d.GraphicsComplex.update = async (args, env) => {
     vertices = new Float32Array( pts.flat() );
   }
 
+  env.local.vertices.coordinates = vertices;
   env.local.vertices.position.set( vertices );
   env.local.vertices.position.needsUpdate = true;
 
@@ -1821,7 +1813,8 @@ thickness: env.materialThickness,
         iridescenceThickness: env.iridescenceThickness,
         specularColor: env.specularColor,
         specularIntensity: env.specularIntensity,
-        matte: env.matte              
+        matte: env.matte,
+        side: THREE.DoubleSide                     
       });
     } else {
       material = new env.material({
@@ -1847,7 +1840,8 @@ thickness: env.materialThickness,
         iridescenceThickness: env.iridescenceThickness,
         specularColor: env.specularColor,
         specularIntensity: env.specularIntensity,
-        matte: env.matte        
+        matte: env.matte,
+        side: THREE.DoubleSide       
       });         
     }
 
@@ -1917,8 +1911,8 @@ thickness: env.materialThickness,
       iridescenceThickness: env.iridescenceThickness,
       specularColor: env.specularColor,
       specularIntensity: env.specularIntensity,
-      matte: env.matte      
-      
+      matte: env.matte  ,  
+      side: THREE.DoubleSide       
       
       //depthTest: false
       //depthWrite: false
