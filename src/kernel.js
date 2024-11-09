@@ -237,6 +237,12 @@ g3d.Arrowheads = async (args, env) => {
   }
 };
 
+const g3dComplex = {};
+
+g3dComplex.Tube = async (args, env) => {
+  throw 'Tube inside GraphicsComplex is not yet supported';
+}
+
 g3d.Tube = async (args, env) => {
 
 
@@ -646,34 +652,18 @@ g3d.Arrow.virtual = true
 
 //g3d.Tube = g3d.TubeArrow
 
-g3d.Point = async (args, env) => {
+g3dComplex.Point = async (args, env) => {
   let data = await interpretate(args[0], env);
-
-
   const geometry = new THREE.BufferGeometry();
 
-  if (env.hasOwnProperty("vertices")) {
-    //geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', env.vertices.position);
-    //env.vertices.geometry.clone();
+  geometry.setAttribute('position', env.vertices.position);
+  //env.vertices.geometry.clone();
 
-    if (data instanceof NumericArrayObject) { 
-      const dp = data.normal(); //FIXME!!!
-      geometry.setIndex( dp.flat().map((e)=>e-1) );
-    } else {  
-      geometry.setIndex( data.flat().map((e)=>e-1) );
-    }
-
-    //let a = await interpretate(args[0], env);
-    
-
-  } else {
-    if (data instanceof NumericArrayObject) { 
-      geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( data.buffer, 3 ) );
-    } else {
-      geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( data.flat(Infinity), 3 ) );
-    }
-    
+  if (data instanceof NumericArrayObject) { 
+    const dp = data.normal(); //FIXME!!!
+    geometry.setIndex( dp.flat().map((e)=>e-1) );
+  } else {  
+    geometry.setIndex( data.flat().map((e)=>e-1) );
   }
 
   let material;
@@ -703,11 +693,41 @@ g3d.Point = async (args, env) => {
 
   material.dispose();
 
+  return env.local.points;  
+}
+
+g3d.Point = async (args, env) => {
+  let data = await interpretate(args[0], env);
+
+
+  const geometry = new THREE.BufferGeometry();
+
+
+    if (data instanceof NumericArrayObject) { 
+      geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( data.buffer, 3 ) );
+    } else {
+      geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( data.flat(Infinity), 3 ) );
+    }
+    
+
+  let material;
+  
+  material = new THREE.PointsMaterial( { color: env.color, opacity: env.opacity, size: 3.1 * env.pointSize / (0.011111111111111112)} );
+  
+  
+  const points = new THREE.Points( geometry, material );
+
+  env.local.geometry = geometry;
+
+  env.mesh.add(points);
+  env.local.points = points;
+
+  material.dispose();
+
   return env.local.points;
 };
 
 g3d.Point.update = async (args, env) => {
-  if (env.hasOwnProperty("vertices")) return; //reject if inside Complex
 
   let data = await interpretate(args[0], env);
   if (data instanceof NumericArrayObject) {
@@ -737,6 +757,7 @@ g3d.Sphere = async (args, env) => {
     color: env.color,
     roughness: env.roughness,
     opacity: env.opacity,
+    transparent: env.opacity < 1.0,
     metalness: env.metalness,
     emissive: env.emissive,
     emissiveIntensity: env.emissiveIntensity,
@@ -1638,8 +1659,20 @@ g3d.GraphicsComplex = async (args, env) => {
     
   }
 
+  if ('VertexNormals' in options) {
+    const normals = await interpretate(options["VertexNormals"], env);
+
+    if (normals instanceof NumericArrayObject) {
+      copy.vertices.normals = new THREE.Float32BufferAttribute( new Float32Array( normals.buffer ), 3 );
+    } else {
+      copy.vertices.normals = new THREE.Float32BufferAttribute( new Float32Array( normals.flat() ), 3 );
+    }
+  }
+
   const group = new THREE.Group();
   env.local.group = group;
+
+  copy.context = [g3dComplex, g3d];
 
   await interpretate(args[1], copy);
 
@@ -1667,9 +1700,26 @@ g3d.GraphicsComplex.update = async (args, env) => {
   env.local.vertices.position.set( vertices );
   env.local.vertices.position.needsUpdate = true;
 
+  let options = false;
+
+  if (env.local.vertices.normals) {
+    if (!options) options = await core._getRules(args, {...env, hold: true});
+    const normals = await interpretate(options["VertexNormals"], env);
+
+    if (normals instanceof NumericArrayObject) {
+      env.local.vertices.normals.set(new Float32Array( normals.buffer ));
+    } else {
+      env.local.vertices.normals.set(new Float32Array( normals.flat() ));
+    }
+
+    env.local.vertices.normals.needsUpdate = true;
+  }
+
   if (env.local.vertices.colored) {
-    const options = await core._getRules(args, {...env, hold: true});
+    if (!options) options = await core._getRules(args, {...env, hold: true});
     const colors = await interpretate(options["VertexColors"], env);
+
+
 
     if (colors instanceof NumericArrayObject) {
       env.local.vertices.colors.set(new Float32Array( colors.buffer ));
@@ -1692,145 +1742,229 @@ g3d.GraphicsComplex.destroy = async (args, env) => {
 
 g3d.GraphicsComplex.virtual = true
 
-
-g3d.Polygon = async (args, env) => {
+g3dComplex.Polygon = async (args, env) => {
   var geometry;
   let material;
 
-  if (env.hasOwnProperty("vertices")) {
-    geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', env.vertices.position);
-    //env.vertices.geometry.clone();
+  geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', env.vertices.position);
+  //env.vertices.geometry.clone();
 
-    let a = await interpretate(args[0], env);
+  let a = await interpretate(args[0], env);
+
+  if (a instanceof NumericArrayObject) {
+    throw 'indexed geometry with NumericArray is not yet supported';
+    //single polygon
+    switch(a.depth.length) {
+      case 1: //single
+        geometry.setIndex( a.normal().flat().map((e)=>e-1) );
+      break;
+
+      case 2: //multiple
+
+      break;
+    }
+
+
+  } else {
+
+    if (args.length > 1) {
+
+    let b = await interpretate(args[1], env);
+
+    if (typeof b == 'number') { //non indexed geometry case
+
+      geometry.setDrawRange( a-1, b );
+      env.local.nonindexed = true;
+
+    } else {
+      console.error('Unknow case for Polygon');
+    }
+
+    } else {
     
-    if (a[0].length === 3) {
+      if (a[0].length === 3) {
       geometry.setIndex( a.flat().map((e)=>e-1) );
-    } else {
-      //more complicatec case, need to covert all polygons into triangles
-      let extendedIndexes = [];
+      } else {
+    //more complicatec case, need to covert all polygons into triangles
+    let extendedIndexes = [];
 
-      //console.log(a);
+    //console.log(a);
 
-      if (Array.isArray(a[0])) {
-     
+    if (Array.isArray(a[0])) {
+   
 
-      for (let i=0; i<a.length; ++i) {
-        const b = a[i];
-        switch (b.length) {
-          case 3:
-            extendedIndexes.push([b[0],b[1],b[2]]);
-            break;
-  
-          case 4:
-            extendedIndexes.push([b[0],b[1],b[2]]);
-            extendedIndexes.push([b[0],b[2],b[3]]);
-            break;
-          /**
-           *  0 1
-           * 4   2
-           *   3
-           */
-          case 5:
-            extendedIndexes.push([b[0], b[1], b[4]]);
-            extendedIndexes.push([b[1], b[2], b[3]]);
-            extendedIndexes.push([b[1], b[3], b[4]]);
-            break;
-          /**
-           * 0  1
-           *5     2
-           * 4   3
-           */
-          case 6:
-            extendedIndexes.push([b[0], b[1], b[5]]);
-            extendedIndexes.push([b[1], b[2], b[5]]);
-            extendedIndexes.push([b[5], b[2], b[4]]);
-            extendedIndexes.push([b[2], b[3], b[4]]);
-            break;
-          default:
-           
-            console.error("cannot build complex polygon");
-            //FIXME
-            break;
-        }
-      }   
-    } else {
-      extendedIndexes = a.flat();
+    for (let i=0; i<a.length; ++i) {
+      const b = a[i];
+      switch (b.length) {
+        case 3:
+          extendedIndexes.push([b[0],b[1],b[2]]);
+          break;
+
+        case 4:
+          extendedIndexes.push([b[0],b[1],b[2]]);
+          extendedIndexes.push([b[0],b[2],b[3]]);
+          break;
+        /**
+         *  0 1
+         * 4   2
+         *   3
+         */
+        case 5:
+          extendedIndexes.push([b[0], b[1], b[4]]);
+          extendedIndexes.push([b[1], b[2], b[3]]);
+          extendedIndexes.push([b[1], b[3], b[4]]);
+          break;
+        /**
+         * 0  1
+         *5     2
+         * 4   3
+         */
+        case 6:
+          extendedIndexes.push([b[0], b[1], b[5]]);
+          extendedIndexes.push([b[1], b[2], b[5]]);
+          extendedIndexes.push([b[5], b[2], b[4]]);
+          extendedIndexes.push([b[2], b[3], b[4]]);
+          break;
+        default:
+         
+          console.error("cannot build complex polygon");
+          //FIXME
+          break;
+      }
+    }   
+  } else {
+    extendedIndexes = a.flat();
+  }
+    console.log('Set Index');
+    geometry.setIndex( extendedIndexes.flat().map((e)=>e-1) );
+    
+    
+      }
     }
-      console.log('Set Index');
-      geometry.setIndex( extendedIndexes.flat().map((e)=>e-1) );
-      
-      
-    }
+  }
+  //handler for future recomputations (in a case of update)
+  if (env?.vertices?.normals) {
 
-    //handler for future recomputations (in a case of update)
+    geometry.setAttribute('normal', env.vertices.normals);
+    env.local.normals = true;
+
+  } else {
     env.vertices.handlers.push(() => {
       geometry.computeVertexNormals();
     });
 
     geometry.computeVertexNormals();
+  }
 
-    //check if colored (Material BUG) !!!
-    if (env?.vertices?.colored) {
-      //geometry.setAttribute()
-      geometry.setAttribute( 'color', env.vertices.colors );
+  //check if colored (Material BUG) !!!
+  if (env?.vertices?.colored) {
+    //geometry.setAttribute()
+    geometry.setAttribute( 'color', env.vertices.colors );
 
-      material = new THREE.MeshBasicMaterial({
-        vertexColors: true,
-        transparent: env.opacity < 1,
-        opacity: env.opacity,
-        roughness: env.roughness,
-        metalness: env.metalness,
-        emissive: env.emissive,
-        emissiveIntensity: env.emissiveIntensity, 
-        ior: env.ior,
-        transmission: env.transmission,
-        thinFilm: env.thinFilm,
+    material = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: env.opacity < 1,
+      opacity: env.opacity,
+      roughness: env.roughness,
+      metalness: env.metalness,
+      emissive: env.emissive,
+      emissiveIntensity: env.emissiveIntensity, 
+      ior: env.ior,
+      transmission: env.transmission,
+      thinFilm: env.thinFilm,
 thickness: env.materialThickness,
-        attenuationColor: env.attenuationColor,
-        attenuationDistance: env.attenuationDistance,
-        clearcoat: env.clearcoat,
-        clearcoatRoughness: env.clearcoatRoughness,
-        sheenColor: env.sheenColor,
-        sheenRoughness: env.sheenRoughness,
-        iridescence: env.iridescence,
-        iridescenceIOR: env.iridescenceIOR,
-        iridescenceThickness: env.iridescenceThickness,
-        specularColor: env.specularColor,
-        specularIntensity: env.specularIntensity,
-        matte: env.matte,
-        side: THREE.DoubleSide                     
-      });
-    } else {
-      material = new env.material({
-        color: env.color,
-        transparent: env.opacity < 1,
-        opacity: env.opacity,
-        roughness: env.roughness,
-        metalness: env.metalness,
-        emissive: env.emissive,
-        emissiveIntensity: env.emissiveIntensity,
-        ior: env.ior,
-        transmission: env.transmission,
-        thinFilm: env.thinFilm,
+      attenuationColor: env.attenuationColor,
+      attenuationDistance: env.attenuationDistance,
+      clearcoat: env.clearcoat,
+      clearcoatRoughness: env.clearcoatRoughness,
+      sheenColor: env.sheenColor,
+      sheenRoughness: env.sheenRoughness,
+      iridescence: env.iridescence,
+      iridescenceIOR: env.iridescenceIOR,
+      iridescenceThickness: env.iridescenceThickness,
+      specularColor: env.specularColor,
+      specularIntensity: env.specularIntensity,
+      matte: env.matte,
+      side: THREE.DoubleSide                     
+    });
+  } else {
+    material = new env.material({
+      color: env.color,
+      transparent: env.opacity < 1,
+      opacity: env.opacity,
+      roughness: env.roughness,
+      metalness: env.metalness,
+      emissive: env.emissive,
+      emissiveIntensity: env.emissiveIntensity,
+      ior: env.ior,
+      transmission: env.transmission,
+      thinFilm: env.thinFilm,
 thickness: env.materialThickness,
-        attenuationColor: env.attenuationColor,
-        attenuationDistance: env.attenuationDistance,
-        clearcoat: env.clearcoat,
-        clearcoatRoughness: env.clearcoatRoughness,
-        sheenColor: env.sheenColor,
-        sheenRoughness: env.sheenRoughness,
-        iridescence: env.iridescence,
-        iridescenceIOR: env.iridescenceIOR,
-        iridescenceThickness: env.iridescenceThickness,
-        specularColor: env.specularColor,
-        specularIntensity: env.specularIntensity,
-        matte: env.matte,
-        side: THREE.DoubleSide       
-      });         
-    }
+      attenuationColor: env.attenuationColor,
+      attenuationDistance: env.attenuationDistance,
+      clearcoat: env.clearcoat,
+      clearcoatRoughness: env.clearcoatRoughness,
+      sheenColor: env.sheenColor,
+      sheenRoughness: env.sheenRoughness,
+      iridescence: env.iridescence,
+      iridescenceIOR: env.iridescenceIOR,
+      iridescenceThickness: env.iridescenceThickness,
+      specularColor: env.specularColor,
+      specularIntensity: env.specularIntensity,
+      matte: env.matte,
+      side: THREE.DoubleSide       
+    });         
+  }
 
-  } else { 
+    //console.log(env.opacity);
+    material.side = THREE.DoubleSide;
+
+    const poly = new THREE.Mesh(geometry, material);
+    poly.receiveShadow = env.shadows;
+    poly.castShadow = true
+  
+    //poly.frustumCulled = false;
+    env.mesh.add(poly);
+    material.dispose();
+
+    env.local.geometry = geometry;
+  
+    return poly;
+
+}
+
+g3dComplex.Polygon.update = async (args, env) => {
+  if (env.local.nonindexed) {
+    const a = await interpretate(args[0], env);
+    const b = await interpretate(args[1], env);
+    env.local.geometry.setDrawRange( a-1, b );
+    env.wake(true);
+  } else {
+    //normal indexed geometry
+    //let indexes = 
+    throw 'indexed geometry is not yet supported';
+
+  }
+  //just setDrawingRange
+  //do not process indexes!
+
+}
+
+g3dComplex.Polygon.destroy = (args, env) => {
+  //just setDrawingRange
+  //do not process indexes!
+  env.local.geometry.dispose();
+
+}
+
+g3dComplex.Polygon.virtual = true;
+
+g3d.Polygon = async (args, env) => {
+  var geometry;
+  let material;
+
+
     geometry = new THREE.BufferGeometry();
     let points = await interpretate(args[0], env);
 
@@ -1902,7 +2036,7 @@ thickness: env.materialThickness,
       //depthTest: false
       //depthWrite: false
     });      
-  }
+  
 
 
   //console.log(env.opacity);
@@ -2055,16 +2189,10 @@ Array.from(
 (value, index) => start + index * step
 );
 
-
-g3d.Line = async (args, env) => {
-  
-  var geometry;
-  //let vertices;
-
-  if (env.hasOwnProperty("vertices")) {
-    
+g3dComplex.Line = async (args, env) => {
+   
     //vertices = env.vertices;
-    geometry = new THREE.BufferGeometry();
+    const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', env.vertices.position);
 
     let a = await interpretate(args[0], env);
@@ -2077,8 +2205,28 @@ g3d.Line = async (args, env) => {
    
     //geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
 
+    const material = new THREE.LineBasicMaterial({
+      linewidth: env.thickness,
+      color: env.color,
+      opacity: env.opacity,
+      transparent: env.opacity < 1.0 ? true : false
+    });
+    const line = new THREE.Line(geometry, material);
 
-  } else { 
+    env.local.line = line;
+
+    env.mesh.add(line);
+
+    return line;
+}
+  
+
+g3d.Line = async (args, env) => {
+  
+  var geometry;
+  //let vertices;
+
+
     geometry = new THREE.BufferGeometry()
     const points = await interpretate(args[0], env);
     if (points instanceof NumericArrayObject) { // convert back automatically
@@ -2087,8 +2235,6 @@ g3d.Line = async (args, env) => {
       geometry.setAttribute( 'position', new THREE.BufferAttribute( new Float32Array(points.flat()), 3 ) );
     }
     
-
-  }
 
 
     const material = new THREE.LineBasicMaterial({
@@ -2258,8 +2404,8 @@ g3d.SkyAndWater = async (args, env) => {
   return;
 
   if (!Water) {
-    Water         = (await import('three/examples/jsm/objects/Water.js')).Water;
-    Sky           = (await import('three/examples/jsm/objects/Sky.js')).Sky;  
+    //Water         = (await import('three/examples/jsm/objects/Water.js')).Water;
+    //Sky           = (await import('three/examples/jsm/objects/Sky.js')).Sky;  
   }
 
   let options = await core._getRules(args, env);
@@ -2357,7 +2503,7 @@ g3d.Sky = async (args, env) => {
   console.warn('temporary disabled');
   return;
   if (!Sky) {
-    Sky           = (await import('three/examples/jsm/objects/Sky.js')).Sky;  
+    //Sky           = (await import('three/examples/jsm/objects/Sky.js')).Sky;  
   }
 
   let options = await core._getRules(args, env);
@@ -2420,7 +2566,9 @@ g3d.Water = async (args, env) => {
   
   
   if (!Water) {
-    Water         = (await import('three/examples/jsm/objects/Water.js')).Water;
+    await interpretate.shared.THREEWater.load();
+    Water = interpretate.shared.THREEWater.Water;
+    //Water         = (await import('three/examples/jsm/objects/Water.js')).Water;
   }
 
   let options = await core._getRules(args, env);
@@ -2819,7 +2967,11 @@ g3d.EventListener = async (args, env) => {
   let object = await interpretate(args[0], env);
   if (Array.isArray(object)) object = object[0];
 
-  if (!TransformControls) TransformControls = (await import('three/addons/controls/TransformControls.js')).TransformControls;
+  if (!TransformControls) {
+    await interpretate.shared.THREETransformControls.load();
+    TransformControls = interpretate.shared.THREETransformControls.TransformControls;
+    //TransformControls = (await import('three/addons/controls/TransformControls.js')).TransformControls;
+  }
   rules.forEach((rule)=>{
     g3d.EventListener[rule.lhs](rule.rhs, object, copy);
   });
@@ -2925,11 +3077,18 @@ g3d['Graphics3D`toDataURL'] = async (args, env) => {
 core.Graphics3D = async (args, env) => {  
 //Lazy loading
 
-THREE         = (await import('three'));
-OrbitControls = (await import("three/examples/jsm/controls/OrbitControls.js")).OrbitControls;
+await interpretate.shared.THREE.load();
+
+if (!THREE) {
+  THREE = interpretate.shared.THREE.THREE;
+  OrbitControls = interpretate.shared.THREE.OrbitControls;
+  RGBELoader = interpretate.shared.THREE.RGBELoader;
+  CSS2D = interpretate.shared.THREE.CSS2D;
+}
+
+
 GUI           = (await import('dat.gui')).GUI;  
-RGBELoader    = (await import('three/examples/jsm/loaders/RGBELoader.js')).RGBELoader; 
-FullScreenQuad = (await import('three/examples/jsm/postprocessing/Pass.js')).FullScreenQuad; 
+
 MathUtils     = THREE.MathUtils;
 
 let sleeping = false;
@@ -2947,11 +3106,6 @@ if (Object.keys(options).length === 0 && args.length > 1) {
 
 
 let noGrid = true;
-
-//if (options.Axes) {
-  if (!CSS2D)  CSS2D = await import('./../libs/labels.js');
-  
-//}
 
 let plotRange;
 
@@ -2973,12 +3127,20 @@ const defaultMatrix = new THREE.Matrix4().set(
 let PathRendering = false;
 if ('RTX' in options) {
   PathRendering = true;
-  RTX = (await import('three-gpu-pathtracer/build/index.module.js'));
+  if (!RTX) {
+    await interpretate.shared.THREERTX.load();
+    RTX = interpretate.shared.THREERTX.RTX;
+  }
+  //RTX = (await import('three-gpu-pathtracer/build/index.module.js'));
 } else if (options.Renderer) {
   const renderer = await interpretate(options.Renderer, env);
   if (renderer == 'PathTracing') {
     PathRendering = true;
-    RTX = (await import('three-gpu-pathtracer/build/index.module.js'));
+    if (!RTX) {
+      await interpretate.shared.THREERTX.load();
+      RTX = interpretate.shared.THREERTX.RTX;
+    }   
+    //RTX = (await import('three-gpu-pathtracer/build/index.module.js'));
   }
 }
 
@@ -3080,11 +3242,10 @@ if (options.ViewProjection) {
 }
 
 if (options.Background) {
-  const backgroundColor = await interpretate(options.Background, {...env});
+  const backgroundColor = await interpretate(options.Background, {...env, context:g3d});
   options.Background = backgroundColor;
   if (backgroundColor?.isColor == true) {
     params.backgroundAlpha = 1.0;
-
   }
   
 }
@@ -3242,7 +3403,9 @@ let controlObject = {
 if (options.Controls) {
 
   if ((await interpretate(options.Controls, env)) === 'PointerLockControls') {
-    const o = (await import('three/addons/controls/PointerLockControls.js')).PointerLockControls;
+    await interpretate.shared.THREEPointerLockControls.load();
+    const o = interpretate.shared.THREEPointerLockControls.PointerLockControls;
+    //const o = (await import('three/addons/controls/PointerLockControls.js')).PointerLockControls;
     
   
 
@@ -4027,9 +4190,19 @@ if ('Lighting' in options) {
       scene.environment = texture;
       scene.background = texture;
     }
+  } else if (options.Background) {
+    if (options.Background.isColor) {
+      scene.background = options.Background;
+    }
   }
 } else {
   addDefaultLighting(scene, RTX, PathRendering);
+}
+
+if (options.Background && !PathRendering) {
+  if (options.Background.isColor) {
+    scene.background = options.Background;
+  }
 }
 
 if (PathRendering) {
