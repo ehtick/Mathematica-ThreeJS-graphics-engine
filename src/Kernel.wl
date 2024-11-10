@@ -95,5 +95,23 @@ Graphics3D /: MakeBoxes[System`Dump`g_Graphics3D,System`Dump`fmt:StandardForm|Tr
     ]
 ]
 
+Image3D;
+Unprotect[Image3D]
+FormatValues[Image3D] = {}
+
+dump = {};
+
+Image3D /: MakeBoxes[Image`ImageDump`img:Image3D[_,Image`ImageDump`type_,Image`ImageDump`info___], Image`ImageDump`fmt_]/;Image`ValidImage3DQHold[Image`ImageDump`img] := With[{
+  preview = RegionPlot3D[ImageMesh[Image`ImageDump`img, Method->"MarchingCubes"], ImageSize->200],
+  unique = Unique["Image3DDump"]
+},
+  AppendTo[dump, Hold[unique]];
+  
+  With[{box = ViewBox[unique, preview // CreateFrontEndObject]},
+    unique = Image`ImageDump`img;
+    box
+  ]
+]
+
 End[]
 EndPackage[]
