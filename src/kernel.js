@@ -19,6 +19,9 @@ interpretate.contextExpand(g3d);
   g3d[e] = () => e;
 });
 
+g3d.VertexNormals.update = () => "VertexNormals"
+g3d.VertexColors.update = () => "VertexColors"
+
 g3d.Void = (args, env) => {console.warn(args); console.warn('went to the void...');}
 g3d.Void.update = () => {}
 g3d.Void.destroy = () => {}
@@ -1640,6 +1643,7 @@ g3d.GraphicsComplex = async (args, env) => {
     //coordinates: vertices,
     position: new THREE.BufferAttribute( vertices, 3 ),
     colored: false,
+    onResize: [],
     handlers: []
   }
 
@@ -1652,9 +1656,9 @@ g3d.GraphicsComplex = async (args, env) => {
     copy.vertices.colored = true;
 
     if (colors instanceof NumericArrayObject) {
-      copy.vertices.colors = new THREE.Float32BufferAttribute( new Float32Array( colors.buffer ), 3 );
+      copy.vertices.colors = new THREE.BufferAttribute( new Float32Array( colors.buffer ), 3 );
     } else {
-      copy.vertices.colors = new THREE.Float32BufferAttribute( new Float32Array( colors.flat() ), 3 );
+      copy.vertices.colors = new THREE.BufferAttribute( new Float32Array( colors.flat() ), 3 );
     }
     
   }
@@ -1662,10 +1666,12 @@ g3d.GraphicsComplex = async (args, env) => {
   if ('VertexNormals' in options) {
     const normals = await interpretate(options["VertexNormals"], env);
 
+    
+
     if (normals instanceof NumericArrayObject) {
-      copy.vertices.normals = new THREE.Float32BufferAttribute( new Float32Array( normals.buffer ), 3 );
+      copy.vertices.normals = new THREE.BufferAttribute( new Float32Array( normals.buffer ), 3 );
     } else {
-      copy.vertices.normals = new THREE.Float32BufferAttribute( new Float32Array( normals.flat() ), 3 );
+      copy.vertices.normals = new THREE.BufferAttribute( new Float32Array( normals.flat() ), 3 );
     }
   }
 
@@ -1692,17 +1698,38 @@ g3d.GraphicsComplex.update = async (args, env) => {
 
   if (pts instanceof NumericArrayObject) { // convert back automatically
     vertices = new Float32Array( pts.buffer );
+    //console.warn(pts.dims);
   } else {
     vertices = new Float32Array( pts.flat() );
+    //console.warn(pts.length);
   }
 
-  env.local.vertices.coordinates = vertices;
-  env.local.vertices.position.set( vertices );
+  //env.local.vertices.coordinates = vertices;
+  if (env.local.vertices.position.count * 3 < vertices.length) {
+    console.warn(`Buffer attributes will be resized x 2! Old: ${env.local.vertices.position.count * 3} Required ${vertices.length}`);
+    env.local.vertices.position = new THREE.BufferAttribute( new Float32Array(vertices.length * 2), 3 );
+    //env.local.vertices.position.needsUpdate = true;
+
+    if (env.local.vertices.normals) {
+      env.local.vertices.normals = new THREE.BufferAttribute( new Float32Array(vertices.length * 2), 3 );
+      env.local.vertices.normals.needsUpdate = true;
+    }
+
+    if (env.local.vertices.colors) {
+      env.local.vertices.colors = new THREE.BufferAttribute( new Float32Array(vertices.length * 2), 3 );
+      env.local.vertices.colors.needsUpdate = true;
+    }    
+
+    env.local.vertices.onResize.forEach((el) => el(env.local.vertices));
+  }
+
+  env.local.vertices.position.set( vertices);
   env.local.vertices.position.needsUpdate = true;
 
   let options = false;
 
   if (env.local.vertices.normals) {
+    //console.warn('Update normals');
     if (!options) options = await core._getRules(args, {...env, hold: true});
     const normals = await interpretate(options["VertexNormals"], env);
 
@@ -1745,23 +1772,35 @@ g3d.GraphicsComplex.virtual = true
 g3dComplex.Polygon = async (args, env) => {
   var geometry;
   let material;
+  let oldGeometry;
 
   geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', env.vertices.position);
+
+  env.vertices.onResize.push((v) => {
+    console.warn('Update geometry pos');
+    console.warn(v.position.count * 3);
+    //geometry.dispose();
+    oldGeometry = geometry;
+
+    geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', v.position);
+  });
   //env.vertices.geometry.clone();
 
   let a = await interpretate(args[0], env);
+  let indexes;
 
   if (a instanceof NumericArrayObject) {
-    throw 'indexed geometry with NumericArray is not yet supported';
+    //throw 'indexed geometry with NumericArray is not yet supported';
     //single polygon
     switch(a.depth.length) {
       case 1: //single
-        geometry.setIndex( a.normal().flat().map((e)=>e-1) );
+        geometry.setIndex( a.normal().map((e)=>e-1) );
       break;
 
       case 2: //multiple
-
+        indexes = new THREE.BufferAttribute( new Uint16Array(a.buffer.map((e)=>e-1)), 1 );
       break;
     }
 
@@ -1776,6 +1815,7 @@ g3dComplex.Polygon = async (args, env) => {
 
       geometry.setDrawRange( a-1, b );
       env.local.nonindexed = true;
+      
 
     } else {
       console.error('Unknow case for Polygon');
@@ -1784,7 +1824,8 @@ g3dComplex.Polygon = async (args, env) => {
     } else {
     
       if (a[0].length === 3) {
-      geometry.setIndex( a.flat().map((e)=>e-1) );
+        //geometry.setIndex(  );
+        indexes = new THREE.BufferAttribute( new Uint16Array(a.flat().map((e)=>e-1)), 1 );
       } else {
     //more complicatec case, need to covert all polygons into triangles
     let extendedIndexes = [];
@@ -1837,17 +1878,33 @@ g3dComplex.Polygon = async (args, env) => {
     extendedIndexes = a.flat();
   }
     console.log('Set Index');
-    geometry.setIndex( extendedIndexes.flat().map((e)=>e-1) );
+    indexes = new THREE.BufferAttribute( new Uint16Array(extendedIndexes.flat().map((e)=>e-1)), 1 );
+    //geometry.setIndex(  );
     
     
       }
     }
   }
+
+  if (indexes) {
+    geometry.setIndex(indexes);
+    indexes.needsUpdate = true;
+
+    env.vertices.onResize.push((v) => {
+      //env.local.indexes = env.local.indexes.clone();
+      geometry.setIndex(env.local.indexes);
+    });    
+  }
+  env.local.indexes = indexes;
   //handler for future recomputations (in a case of update)
   if (env?.vertices?.normals) {
 
     geometry.setAttribute('normal', env.vertices.normals);
     env.local.normals = true;
+
+    env.vertices.onResize.push((v) => {
+      geometry.setAttribute('normal', v.normals);
+    });
 
   } else {
     env.vertices.handlers.push(() => {
@@ -1861,6 +1918,10 @@ g3dComplex.Polygon = async (args, env) => {
   if (env?.vertices?.colored) {
     //geometry.setAttribute()
     geometry.setAttribute( 'color', env.vertices.colors );
+
+    env.vertices.onResize.push((v) => {
+      geometry.setAttribute('color', v.colors);
+    });
 
     material = new THREE.MeshBasicMaterial({
       vertexColors: true,
@@ -1921,6 +1982,13 @@ thickness: env.materialThickness,
     material.side = THREE.DoubleSide;
 
     const poly = new THREE.Mesh(geometry, material);
+
+    env.vertices.onResize.push((v) => {
+      poly.geometry = geometry;
+      oldGeometry.dispose();
+      env.local.geometry = geometry;
+    });
+
     poly.receiveShadow = env.shadows;
     poly.castShadow = true
   
@@ -1938,13 +2006,52 @@ g3dComplex.Polygon.update = async (args, env) => {
   if (env.local.nonindexed) {
     const a = await interpretate(args[0], env);
     const b = await interpretate(args[1], env);
-    env.local.geometry.setDrawRange( a-1, b );
+
+    /*if (env.vertices.position.count*3  < b*3) {
+      console.warn(`Polygon: nonindexed buffer attributes will be resized x 2! Old: ${env.vertices.position.count * 3} Required ${b*3}`);
+      env.vertices.position = new THREE.BufferAttribute( new Float32Array(b * 2 * 3), 3 );
+      env.vertices.position.needsUpdate = true;
+      env.vertices.onResize.forEach((el) => el(env.vertices));
+    } else {
+
+    }  */
+    if (env.vertices.position.count*3  < b*3) {
+      //env.local.geometry.setDrawRange( a-1, Math.min(b, env.vertices.position.count-1) );
+    } else {
+      env.local.geometry.setDrawRange( a-1, b );
+    }
+
+    //console.warn(env.vertices);
+
+    
     env.wake(true);
   } else {
     //normal indexed geometry
     //let indexes = 
-    throw 'indexed geometry is not yet supported';
+    //throw 'indexed geometry is not yet supported';
+ 
+    const a = await interpretate(args[0], env);
+    if (a instanceof NumericArrayObject) {
+      env.local.geometry.setDrawRange(0, a.buffer.length-1);
+      //console.warn(new Uint16Array(a.buffer.map((el) => el-1)));
+      if (env.local.indexes.count < a.buffer.length) {
+        console.warn('Buffer attribute will be resized x 2!');
+        env.local.indexes = new THREE.BufferAttribute( new Uint16Array(a.buffer.length * 2), 1 );
+        env.local.geometry.setIndex(env.local.indexes);
+      }
 
+      env.local.indexes.set(new Uint16Array(a.buffer.map((el) => el-1)));
+    } else { 
+      env.local.geometry.setDrawRange(0, a.length-1); 
+      env.local.indexes.set(new Uint16Array(a.flat().map((el) => el-1)));
+    }
+
+    //if (!env.local.normals) env.local.geometry.computeVertexNormals();
+
+    env.local.indexes.needsUpdate = true;
+
+    
+    
   }
   //just setDrawingRange
   //do not process indexes!
