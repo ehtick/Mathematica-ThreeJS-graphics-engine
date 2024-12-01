@@ -22,7 +22,7 @@ interpretate.contextExpand(g3d);
 g3d.VertexNormals.update = () => "VertexNormals"
 g3d.VertexColors.update = () => "VertexColors"
 
-g3d.Void = (args, env) => {console.warn(args); console.warn('went to the void...');}
+g3d.Void = (args, env) => {console.log(args); console.warn('went to the void...');}
 g3d.Void.update = () => {}
 g3d.Void.destroy = () => {}
 
@@ -114,7 +114,28 @@ g3d.LABColor =  async (args, env) => {
 g3d.LABColor.update = () => {}
 
 
-g3d.Style = core.List
+g3d.Style = async (args, env) => {
+  const copy = env;
+  const options = await core._getRules(args, env);
+  
+  if (options.FontSize) {
+    copy.fontSize = options.FontSize;
+  }  
+
+  if (options.FontColor) {
+    copy.color = options.FontColor;
+  }
+
+  if (options.FontFamily) {
+    copy.fontFamily = options.FontFamily
+  } 
+
+  for(let i=1; i<(args.length - Object.keys(options).length); ++i) {
+    await interpretate(args[i], copy);
+  }
+
+  return await interpretate(args[0], copy);
+}
 
 /**
  * @description https://threejs.org/docs/#api/en/materials/LineDashedMaterial
@@ -156,6 +177,8 @@ g3d.Glow = g3d.Emissive
 let hsv2hsl = (h,s,v,l=v-v*s/2, m=Math.min(l,1-l)) => [h,m?(v-l)/m:0,l];
 
 g3d.Hue = async (args, env) => {
+    env.colorInherit = false;
+
     let color = await Promise.all(args.map(el => interpretate(el, env)));
     if (color.length < 3) {
       color = [color[0], 1,1];
@@ -173,6 +196,8 @@ g3d.EdgeForm = async (args, env) => {
 }
 
 g3d.RGBColor = async (args, env) => {
+  env.colorInherit = false;
+
   if (args.length !== 3 && args.length !== 1) {
     console.log("RGB format not implemented", args);
     console.error("RGB values should be triple!");
@@ -2226,15 +2251,51 @@ g3d.Specularity = (args, env) => { };
 g3d.Text = async (args, env) => { 
   const text = document.createElement( 'span' );
   text.className = 'g3d-label';
-  //text.style.color = 'rgb(' + atom[ 3 ][ 0 ] + ',' + atom[ 3 ][ 1 ] + ',' + atom[ 3 ][ 2 ] + ')';
   const label = await interpretate(args[0], env);
-  const pos   = await interpretate(args[1], env);
+
+
+  if (env.fontSize) text.style.fontSize = env.fontSize + 'px';
+  if (env.fontFamily) text.style.fontFamily = env.fontFamily ;
+  if (!env.colorInherit) text.style.color = env.color.getStyle();
+
+  //text.style.color = 'rgb(' + atom[ 3 ][ 0 ] + ',' + atom[ 3 ][ 1 ] + ',' + atom[ 3 ][ 2 ] + ')';
+  
+  let pos   = await interpretate(args[1], env);
+  if (pos instanceof NumericArrayObject) { // convert back automatically
+    pos = pos.normal();
+  }
+
   text.textContent = String(label);
+
+  env.local.text = text;
+  
 
   const labelObject = new CSS2D.CSS2DObject( text );
   labelObject.position.copy( new THREE.Vector3(...pos) );
+  env.local.labelObject = labelObject;
+
   env.mesh.add(labelObject);
 };
+
+g3d.Text.update = async (args, env) => { 
+  let pos   = await interpretate(args[1], env);
+
+  if (pos instanceof NumericArrayObject) { // convert back automatically
+    pos = pos.normal();
+  }
+
+  const label = await interpretate(args[0], env);
+
+  env.local.text.textContent = label;
+  env.local.labelObject.position.copy( new THREE.Vector3(...pos) );
+  env.wake();
+}
+
+g3d.Text.destroy = () => {
+
+}
+
+g3d.Text.virtual = true
 
 
 
@@ -2267,7 +2328,8 @@ g3d.Text = async (args, env) => {
       'specularIntensity',
       'matte',
       'flatShading',
-      'castShadow'
+      'castShadow',
+      'fontSize'
   ];
 
 g3d.Directive = async (args, env) => { 
@@ -3181,6 +3243,15 @@ g3d['Graphics3D`toDataURL'] = async (args, env) => {
   return encoded;  
 }
 
+g3d.Top = () => [0,0,1000]
+g3d.Bottom = () => [0,0,-1000]
+
+g3d.Right = () => [1000,0,0]
+g3d.Left = () => [-1000,0,0]
+
+g3d.Front = () => [0,1000,0]
+g3d.Back = () => [0,-1000,0]
+
 core.Graphics3D = async (args, env) => {  
 //Lazy loading
 
@@ -3205,16 +3276,29 @@ let timeStamp = performance.now();
  * @type {Object}
  */  
 let options = await core._getRules(args, {...env, context: g3d, hold:true});
-console.log(options);  
+
 
 if (Object.keys(options).length === 0 && args.length > 1) {
   options = await core._getRules(args[1], {...env, context: g3d, hold:true});
 }
 
+console.warn(options);  
+
 
 let noGrid = true;
 
 let plotRange;
+
+let viewPoint = [- 40, 20, 30];
+
+if (options.ViewPoint) {
+  const r = await interpretate(options.ViewPoint, {...env, context: g3d});
+  if (Array.isArray(r)) {
+    if (typeof r[0] == 'number' && typeof r[1] == 'number' && typeof r[2] == 'number') {
+      viewPoint = [r[0], r[2], r[1]];
+    }
+  }
+}
 
 if (options.Axes) {
   console.warn(options.PlotRange);
@@ -3472,7 +3556,7 @@ if (PathRendering) {
 
 const orthoHeight = orthoWidth / aspect;
 orthoCamera = new THREE.OrthographicCamera( orthoWidth / - 2, orthoWidth / 2, orthoHeight / 2, orthoHeight / - 2, 0, 2000 );
-orthoCamera.position.set( - 40, 20, 30 );
+orthoCamera.position.set( ...viewPoint );
 
 activeCamera = orthoCamera;
 
@@ -3768,9 +3852,14 @@ const envcopy = {
   camera: activeCamera,
   controlObject: controlObject,
 
+  fontSize: undefined,
+  fontFamily: undefined,
+
   Handlers: Handlers,
   wake: wakeFunction,
   pointSize: 0.8/10.0,
+
+  colorInherit: true,
 
   emissiveIntensity: undefined,
   roughness: undefined,

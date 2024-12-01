@@ -1,6 +1,6 @@
 {
   "name": "wljs-graphics3d-threejs",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "A ThreeJS implementation of Mathematica's Graphics3D",
   "wljs-meta": {
     "js": "dist/kernel.js",
@@ -40,7 +40,6 @@
     "pixelmatch": "^5.3.0",
     "pngjs": "^6.0.0",
     "process": "^0.11.10",
-    "puppeteer": "^15.4.0",
     "rollup": "^2.70.0",
     "rollup-plugin-combine": "^2.1.1",
     "rollup-plugin-livereload": "^2.0.5",
