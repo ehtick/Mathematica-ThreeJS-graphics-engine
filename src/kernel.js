@@ -271,8 +271,9 @@ g3dComplex.Tube = async (args, env) => {
   throw 'Tube inside GraphicsComplex is not yet supported';
 }
 
-g3d.Tube = async (args, env) => {
 
+
+g3d.Tube = async (args, env) => {
 
   let radius = 1;
   if (args.length > 1) radius = await interpretate(args[1], env);
@@ -285,6 +286,10 @@ g3d.Tube = async (args, env) => {
   if (coordinates instanceof NumericArrayObject) {
     coordinates = coordinates.normal();
   }
+
+  if (radius instanceof NumericArrayObject) {
+    radius = radius.normal();
+  }  
 
 
 
@@ -344,43 +349,34 @@ g3d.Tube = async (args, env) => {
 
 
   } else {
-    const array = coordinates.map((el) => new THREE.Vector3(...el));
-    const path = new THREE.CatmullRomCurve3(array, false);
-    const geometry = new THREE.TubeGeometry( path, Math.max(20, 4 * array.length), radius, 16, false );
+    const tube = new VariableTube( material, coordinates, null, radius, 16, false );
 
-    const mesh = new THREE.Mesh(geometry, material);
-
-    env.mesh.add(mesh);
-    env.local.tube = mesh;
+    env.mesh.add(tube.mesh);
+    env.local.tube = tube;
   
-    geometry.dispose();
+    //geometry.dispose();
   } 
-
-
   material.dispose();
-
-
 }
 
 g3d.Tube.update = async (args, env) => {
   let radius = 1;
   if (args.length > 1) radius = await interpretate(args[1], env);
-  /**
-   * @type {THREE.Vector3}}
-   */
+
   let coordinates = await interpretate(args[0], env);
-  //throw coordinates;
 
   if (coordinates instanceof NumericArrayObject) {
     coordinates = coordinates.normal();
   }
 
-  const array = coordinates.map((el) => new THREE.Vector3(...el));
+  if (radius instanceof NumericArrayObject) {
+    radius = radius.normal();
+  }  
 
-  const path = new THREE.CatmullRomCurve3(array, false);
+  env.local.tube.update(coordinates, radius);
   
-  env.local.tube.geometry.dispose();
-  env.local.tube.geometry = new THREE.TubeGeometry( path, Math.max(20, 4 * array.length), radius, 16, false );
+  //env.local.tube.geometry.dispose();
+  //env.local.tube.geometry = new VariableTube(path, Math.max(20, 4 * array.length), radius, 16, false);
   env.wake(true);
 }
 
@@ -3178,6 +3174,7 @@ g3d.EventListener.transform = (uid, object, env) => {
 let RGBELoader;
 let OrbitControls;
 let FullScreenQuad;
+let VariableTube;
 
 let CSS2D = undefined;
 
@@ -3262,6 +3259,7 @@ if (!THREE) {
   OrbitControls = interpretate.shared.THREE.OrbitControls;
   RGBELoader = interpretate.shared.THREE.RGBELoader;
   CSS2D = interpretate.shared.THREE.CSS2D;
+  VariableTube = (await import('./../libs/tubes/index.js')).VariableTube;
 }
 
 
