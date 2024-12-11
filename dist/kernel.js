@@ -398,7 +398,7 @@ g3d.Tube.update = async (args, env) => {
 g3d.Tube.virtual = true;
 
 g3d.Tube.destroy = async (args, env) => {
-  //env.local.tube.dispose();
+  env.local.tube.dispose();
 };
 
 
@@ -3040,7 +3040,7 @@ if (!THREE) {
   OrbitControls = interpretate.shared.THREE.OrbitControls;
   RGBELoader = interpretate.shared.THREE.RGBELoader;
   CSS2D = interpretate.shared.THREE.CSS2D;
-  VariableTube = (await import('./index-f9b58b6b.js')).VariableTube;
+  VariableTube = (await import('./index-cf4fce55.js')).VariableTube;
 }
 
 

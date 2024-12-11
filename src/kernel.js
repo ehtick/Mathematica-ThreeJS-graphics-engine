@@ -383,7 +383,7 @@ g3d.Tube.update = async (args, env) => {
 g3d.Tube.virtual = true
 
 g3d.Tube.destroy = async (args, env) => {
-  //env.local.tube.dispose();
+  env.local.tube.dispose();
 }
 
 
