@@ -323,6 +323,11 @@ g3d.Tube = async (args, env) => {
     
   });
 
+  if (!VariableTube) {
+    VariableTube = await import('./../libs/tubes/index.js');
+    VariableTube = VariableTube.VariableTube;
+  } 
+
 
 
   if (env.hasOwnProperty("vertices")) {
@@ -3259,7 +3264,8 @@ if (!THREE) {
   OrbitControls = interpretate.shared.THREE.OrbitControls;
   RGBELoader = interpretate.shared.THREE.RGBELoader;
   CSS2D = interpretate.shared.THREE.CSS2D;
-  VariableTube = (await import('./../libs/tubes/index.js')).VariableTube;
+  VariableTube = await import('./../libs/tubes/index.js');
+  VariableTube = VariableTube.VariableTube;
 }
 
 
