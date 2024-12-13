@@ -178,6 +178,7 @@ let hsv2hsl = (h,s,v,l=v-v*s/2, m=Math.min(l,1-l)) => [h,m?(v-l)/m:0,l];
 
 g3d.Hue = async (args, env) => {
     env.colorInherit = false;
+  
 
     let color = await Promise.all(args.map(el => interpretate(el, env)));
     if (color.length < 3) {
@@ -185,6 +186,7 @@ g3d.Hue = async (args, env) => {
     }
     color = hsv2hsl(...color);
     color = [color[0], (color[1]*100).toFixed(2), (color[2]*100).toFixed(2)];
+
 
     env.color = new THREE.Color("hsl("+(3.14*100*color[0]).toFixed(2)+","+color[1]+"%,"+color[2]+"%)");
     return env.color; 
@@ -268,9 +270,79 @@ g3d.Arrowheads = async (args, env) => {
 const g3dComplex = {};
 
 g3dComplex.Tube = async (args, env) => {
-  throw 'Tube inside GraphicsComplex is not yet supported';
+  let data = await interpretate(args[0], env);
+
+  let radius = 1;
+  if (args.length > 1) radius = await interpretate(args[1], env);
+  if (env.radius) radius = env.radius;
+
+  if (radius instanceof NumericArrayObject) {
+    radius = radius.normal();
+  }
+
+  if (data instanceof NumericArrayObject) { 
+    data = data.buffer;
+  }
+
+  let coordinates = [];
+  const ref = env.vertices.position.array;
+  for (let i=0; i<data.length; ++i) {
+    const index = (data[i]-1)*3;
+    coordinates.push([ref[index], ref[index+1], ref[index+2]]);
+  }
+
+  /**
+   * @type {env.material}}
+   */  
+  const material = new env.material({
+    color: env.color,
+    transparent: env.opacity < 1.0,
+    roughness: env.roughness,
+    opacity: env.opacity,
+    metalness: env.metalness,
+    emissive: env.emissive,
+    emissiveIntensity: env.emissiveIntensity,  
+    ior: env.ior,
+    transmission: env.transmission,
+    thinFilm: env.thinFilm,
+    thickness: env.materialThickness,
+    attenuationColor: env.attenuationColor,
+    attenuationDistance: env.attenuationDistance,
+    clearcoat: env.clearcoat,
+    clearcoatRoughness: env.clearcoatRoughness,
+    sheenColor: env.sheenColor,
+    sheenRoughness: env.sheenRoughness,
+    iridescence: env.iridescence,
+    iridescenceIOR: env.iridescenceIOR,
+    iridescenceThickness: env.iridescenceThickness,
+    specularColor: env.specularColor,
+    specularIntensity: env.specularIntensity,
+    matte: env.matte
+    
+  });
+
+  if (!VariableTube) {
+    VariableTube = await import('./../libs/tubes/index.js');
+    VariableTube = VariableTube.VariableTube;
+  } 
+
+    const tube = new VariableTube( material, coordinates, null, radius, 16, false );
+
+    env.mesh.add(tube.mesh);
+    env.local.tube = tube;
+  
+    //geometry.dispose();
+  
+    material.dispose();  
 }
 
+g3dComplex.Tube.update = () => console.error('Tube inside Complex does not support updates')
+
+g3dComplex.Tube.destroy = async (args, env) => {
+  env.local.tube.dispose();
+}
+
+g3dComplex.Tube.virtual = true;
 
 
 g3d.Tube = async (args, env) => {
@@ -328,39 +400,13 @@ g3d.Tube = async (args, env) => {
     VariableTube = VariableTube.VariableTube;
   } 
 
-
-
-  if (env.hasOwnProperty("vertices")) {
-    /*const coordinates = env.vertices.position;
-    const length = Math.floor(coordinates.length / 3);
-
-    let a = await interpretate(args[0], env);
-
-    if (Array.isArray(a[0])) { //nested
-
-    } else {
-
-    }
-
-    const array = a.map((index) => {
-      const indexx = 3*(index - 1);
-      return (new THREE.Vector3(coordinates[indexx], coordinates[indexx+1], coordinates[indexx+2]));
-    });
-    
-    const path = new THREE.CatmullRomCurve3(array, false);
-    const geometry = new THREE.TubeGeometry( path, Math.max(20, 4 * array.length), radius, 16, false );*/
-
-    console.error('Tube inside GraphicsComplex is not supported');
-
-
-  } else {
     const tube = new VariableTube( material, coordinates, null, radius, 16, false );
 
     env.mesh.add(tube.mesh);
     env.local.tube = tube;
   
     //geometry.dispose();
-  } 
+  
   material.dispose();
 }
 
@@ -1795,6 +1841,77 @@ g3d.GraphicsComplex.destroy = async (args, env) => {
 
 g3d.GraphicsComplex.virtual = true
 
+
+g3dComplex.Sphere = async (args, env) => {
+  var radius = 1;
+  if (args.length > 1) radius = await interpretate(args[1], env);
+
+  const material = new env.material({
+    color: env.color,
+    roughness: env.roughness,
+    opacity: env.opacity,
+    transparent: env.opacity < 1.0,
+    metalness: env.metalness,
+    emissive: env.emissive,
+    emissiveIntensity: env.emissiveIntensity,
+    ior: env.ior,
+    transmission: env.transmission,
+    thinFilm: env.thinFilm,
+thickness: env.materialThickness,
+    attenuationColor: env.attenuationColor,
+    attenuationDistance: env.attenuationDistance,
+    clearcoat: env.clearcoat,
+    clearcoatRoughness: env.clearcoatRoughness,
+    sheenColor: env.sheenColor,
+    sheenRoughness: env.sheenRoughness,
+    iridescence: env.iridescence,
+    iridescenceIOR: env.iridescenceIOR,
+    iridescenceThickness: env.iridescenceThickness,
+    specularColor: env.specularColor,
+    specularIntensity: env.specularIntensity,
+    matte: env.matte
+  });
+
+  function addSphere(cr) {
+    const origin = new THREE.Vector4(...cr, 1);
+    const geometry = new THREE.SphereGeometry(radius, 40, 40);
+    const sphere = new THREE.Mesh(geometry, material);
+
+    sphere.position.set(origin.x, origin.y, origin.z);
+    sphere.castShadow = env.shadows;
+    sphere.receiveShadow = env.shadows;
+
+    env.mesh.add(sphere);
+    geometry.dispose();
+    return sphere;
+  }
+
+  let list = await interpretate(args[0], env);
+
+  if (list instanceof NumericArrayObject) { // convert back automatically
+    list = list.normal();
+  }
+
+  const ref = env.vertices.position.array;
+
+  if (Array.isArray(list)) {
+    env.local.object = [];
+
+    for (let i=0; i<list.length; ++i) {
+      const index = (list[i]-1) * 3;
+      env.local.object.push(addSphere([ref[index], ref[index+1], ref[index+3]]));
+    }
+  } else {
+    const index = (list-1) * 3;
+    env.local.object = [addSphere([ref[index], ref[index+1], ref[index+2]])];
+  } 
+
+
+  material.dispose();
+
+  return env.local.object;
+};
+
 g3dComplex.Polygon = async (args, env) => {
   var geometry;
   let material;
@@ -2358,6 +2475,11 @@ Array.from(
 { length: (stop - start) / step + 1 },
 (value, index) => start + index * step
 );
+
+g3dComplex.Arrow = async (args, env) => {
+  env.radius = (await interpretate(args[1], env)) * 0.2;
+  return await interpretate(args[0], env);
+}
 
 g3dComplex.Line = async (args, env) => {
    
@@ -4375,9 +4497,21 @@ scene.updateMatrixWorld();
 
 //console.error(new THREE.Box3().setFromObject(scene));
 
+let noLighting = false;
+if ('Lighting' in options) {
+  if (options.Lighting) {
+    if (options.Lighting[0] == 'List') {
+      noLighting = false;
+    } else {
+      noLighting = true;
+    }
+  } else {
+    noLighting = true;
+  }
+}
 
 //add some lighting
-if ('Lighting' in options) {
+if (noLighting) {
   //if ((await interpretate(options.Lighting, env)) === 'None')
   if (options.Background && PathRendering) {
     if (options.Background.isColor) {
