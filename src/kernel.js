@@ -2066,7 +2066,7 @@ g3dComplex.Polygon = async (args, env) => {
       geometry.setAttribute('color', v.colors);
     });
 
-    material = new THREE.MeshBasicMaterial({
+    material = new env.material({
       vertexColors: true,
       transparent: env.opacity < 1,
       opacity: env.opacity,
@@ -3219,9 +3219,9 @@ const skyColor = copy.color;
 if (args.length > 1) await interpretate(args[1], copy); else copy.color = 0x080820;
 const groundColor = copy.color;
 
-let intensity = 1; if (args.length > 2) intensity = await interpretate(args[1], env);
+let intensity = 1; if (args.length > 2) intensity = await interpretate(args[2], env);
 
-const hemiLight = new THREE.HemisphereLight( skyColor, groundColor, 2 );
+const hemiLight = new THREE.HemisphereLight( skyColor, groundColor, intensity );
 env.global.scene.add( hemiLight );
 }
 
@@ -4037,6 +4037,27 @@ if (options.Axes && plotRange) {
 
 }
 
+let noLighting = false;
+
+if ('Lighting' in options) {
+  if (options.Lighting) {
+    if (options.Lighting[0] == 'List') {
+      noLighting = false;
+    } else {
+      if (options.Lighting == "'Neutral'") {
+        //neutralMaterial = true;
+        envcopy.material = THREE.MeshBasicMaterial;
+      } else {
+        noLighting = true;
+      }
+      
+    }
+  } else {
+    noLighting = true;
+  }
+}
+
+
 await interpretate(args[0], envcopy);
 
 if (options.Epilog) {
@@ -4497,18 +4518,7 @@ scene.updateMatrixWorld();
 
 //console.error(new THREE.Box3().setFromObject(scene));
 
-let noLighting = false;
-if ('Lighting' in options) {
-  if (options.Lighting) {
-    if (options.Lighting[0] == 'List') {
-      noLighting = false;
-    } else {
-      noLighting = true;
-    }
-  } else {
-    noLighting = true;
-  }
-}
+
 
 //add some lighting
 if (noLighting) {
