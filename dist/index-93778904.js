@@ -1,8 +1,8 @@
 const THREE = interpretate.shared.THREE.THREE;
 const BufferGeometry = THREE.BufferGeometry;
-const Float32BufferAttribute = THREE.Float32BufferAttribute;
-const Vector2 = THREE.Vector2;
-const Vector3 = THREE.Vector3;
+THREE.Float32BufferAttribute;
+THREE.Vector2;
+THREE.Vector3;
 
 
 class VariableTube {
@@ -12,21 +12,6 @@ class VariableTube {
         this.geometry = new BufferGeometry();
 
         let radialSegments = radialSegments_;
-		// expose internals
-
-		// helper variables
-
-		//const normal = new Vector3();
-
-		// buffer
-
-        const radialPoints = [];
-        const normalPoints = [];
-
-		const vertices = [];
-		const normals = [];
-		const uvs = [];
-		let indices = [];
 
         const radialFunction = VariableTube.generateRadial(radius, radialSegments);
         const normalFunction = VariableTube.generateNormal(radius, radialSegments);
@@ -229,9 +214,7 @@ class VariableTube {
 
 		const vertex = [0.,0.,0.];
         const normal = [0.,0.,0.];
-        let point;
         const basis = [[1,0,0], [0,1,0], [0,0,1]];
-        let t;
         let p;
         let n;
         let norm;
@@ -240,7 +223,6 @@ class VariableTube {
         let cv = [0.0, 0.0, 0.0];
 
         let currentIndex = 0;
-        let length = 0;
         let delta;
 
 
@@ -465,6 +447,5 @@ class VariableTube {
     }
 	
 }
-
 
 export { VariableTube };

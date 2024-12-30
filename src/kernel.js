@@ -1780,15 +1780,18 @@ g3d.GraphicsComplex.update = async (args, env) => {
   if (env.local.vertices.position.count * 3 < vertices.length) {
     console.warn(`Buffer attributes will be resized x 2! Old: ${env.local.vertices.position.count * 3} Required ${vertices.length}`);
     env.local.vertices.position = new THREE.BufferAttribute( new Float32Array(vertices.length * 2), 3 );
+    env.local.vertices.position.setUsage(THREE.StreamDrawUsage); //Optimizaton for WebGL
     //env.local.vertices.position.needsUpdate = true;
 
     if (env.local.vertices.normals) {
       env.local.vertices.normals = new THREE.BufferAttribute( new Float32Array(vertices.length * 2), 3 );
+      env.local.vertices.normals.setUsage(THREE.StreamDrawUsage); //Optimizaton for WebGL
       env.local.vertices.normals.needsUpdate = true;
     }
 
     if (env.local.vertices.colors) {
       env.local.vertices.colors = new THREE.BufferAttribute( new Float32Array(vertices.length * 2), 3 );
+      env.local.vertices.colors.setUsage(THREE.StreamDrawUsage); //Optimizaton for WebGL
       env.local.vertices.colors.needsUpdate = true;
     }    
 
@@ -2180,6 +2183,7 @@ g3dComplex.Polygon.update = async (args, env) => {
       if (env.local.indexes.count < a.buffer.length) {
         console.warn('Buffer attribute will be resized x 2!');
         env.local.indexes = new THREE.BufferAttribute( new Uint16Array(a.buffer.length * 2), 1 );
+        env.local.indexes.setUsage(THREE.StreamDrawUsage); //Optimizaton for WebGL
         env.local.geometry.setIndex(env.local.indexes);
       }
 
