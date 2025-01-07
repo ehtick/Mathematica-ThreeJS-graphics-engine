@@ -2136,7 +2136,7 @@ thickness: env.materialThickness,
     });
 
     poly.receiveShadow = env.shadows;
-    poly.castShadow = true
+    poly.castShadow = true;
   
     //poly.frustumCulled = false;
     env.mesh.add(poly);
@@ -2451,6 +2451,7 @@ g3d.Text.virtual = true
       'matte',
       'flatShading',
       'castShadow',
+      'shadows',
       'fontSize'
   ];
 
@@ -2470,6 +2471,7 @@ g3d.Directive = async (args, env) => {
       env[key] = await interpretate(opts[okey], {...env});
     }
   }
+
 };
 
 g3d.PlaneGeometry = () => { };

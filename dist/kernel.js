@@ -2464,6 +2464,7 @@ g3d.Text.virtual = true;
       'matte',
       'flatShading',
       'castShadow',
+      'shadows',
       'fontSize'
   ];
 
@@ -2483,6 +2484,7 @@ g3d.Directive = async (args, env) => {
       env[key] = await interpretate(opts[okey], {...env});
     }
   }
+
 };
 
 g3d.PlaneGeometry = () => { };
