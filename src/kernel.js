@@ -1508,11 +1508,9 @@ const decodeTransformation = (arrays, env) => {
     case 'normal':
       //make it like Matrix4
 
-      arrays.forEach((el) => {
-        el.push(0);
-      });
+      
 
-      matrix = arrays;
+      matrix = arrays.map((el) => [...el, 0]);
       matrix.push([0, 0, 0, 1]);
       matrix = new THREE.Matrix4().set(...aflatten(matrix));
     break;
@@ -1523,8 +1521,8 @@ const decodeTransformation = (arrays, env) => {
     break;
 
     case 'complex':
-      matrix = arrays[0];
-      const v = arrays[1];
+      matrix = [...arrays[0]];
+      const v = [...arrays[1]];
 
       matrix[0].push(v[0]);
       matrix[1].push(v[1]);
