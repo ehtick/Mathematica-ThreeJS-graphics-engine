@@ -165,7 +165,7 @@ g3d.Annotation = core.List;
 
 g3d.GraphicsGroup = async (args, env) => {
   const group = new THREE.Group();
-  let copy = Object.assign({}, env);
+  let copy = {...env};
 
   copy.mesh = group;
 
@@ -1981,11 +1981,19 @@ g3dComplex.Polygon = async (args, env) => {
     }
 
     } else {
+
+      
     
       if (a[0].length === 3) {
         //geometry.setIndex(  );
+        
+        
         indexes = new THREE.BufferAttribute( new Uint16Array(a.flat().map((e)=>e-1)), 1 );
       } else {
+
+
+        
+      
     //more complicatec case, need to covert all polygons into triangles
     let extendedIndexes = [];
 
@@ -1998,12 +2006,13 @@ g3dComplex.Polygon = async (args, env) => {
       const b = a[i];
       switch (b.length) {
         case 3:
-          extendedIndexes.push([b[0],b[1],b[2]]);
+          extendedIndexes.push(b[0],b[1],b[2]);
           break;
 
         case 4:
-          extendedIndexes.push([b[0],b[1],b[2]]);
-          extendedIndexes.push([b[0],b[2],b[3]]);
+          //throw b;
+          extendedIndexes.push(b[0],b[1],b[2]);
+          extendedIndexes.push(b[0],b[2],b[3]);
           break;
         /**
          *  0 1
@@ -2011,9 +2020,9 @@ g3dComplex.Polygon = async (args, env) => {
          *   3
          */
         case 5:
-          extendedIndexes.push([b[0], b[1], b[4]]);
-          extendedIndexes.push([b[1], b[2], b[3]]);
-          extendedIndexes.push([b[1], b[3], b[4]]);
+          extendedIndexes.push(b[0], b[1], b[4]);
+          extendedIndexes.push(b[1], b[2], b[3]);
+          extendedIndexes.push(b[1], b[3], b[4]);
           break;
         /**
          * 0  1
@@ -2021,10 +2030,10 @@ g3dComplex.Polygon = async (args, env) => {
          * 4   3
          */
         case 6:
-          extendedIndexes.push([b[0], b[1], b[5]]);
-          extendedIndexes.push([b[1], b[2], b[5]]);
-          extendedIndexes.push([b[5], b[2], b[4]]);
-          extendedIndexes.push([b[2], b[3], b[4]]);
+          extendedIndexes.push(b[0], b[1], b[5]);
+          extendedIndexes.push(b[1], b[2], b[5]);
+          extendedIndexes.push(b[5], b[2], b[4]);
+          extendedIndexes.push(b[2], b[3], b[4]);
           break;
         default:
          
@@ -2034,10 +2043,18 @@ g3dComplex.Polygon = async (args, env) => {
       }
     }   
   } else {
-    extendedIndexes = a.flat();
+    extendedIndexes = a;
+    
   }
     console.log('Set Index');
-    indexes = new THREE.BufferAttribute( new Uint16Array(extendedIndexes.flat().map((e)=>e-1)), 1 );
+
+    
+    if (extendedIndexes.length > 16536) {
+      indexes = new THREE.Uint32BufferAttribute( new Uint32Array(extendedIndexes.flatMap((e)=>e-1)), 1 );
+    } else {
+      indexes = new THREE.BufferAttribute( new Uint16Array(extendedIndexes.flatMap((e)=>e-1)), 1 );
+    }
+    
     //geometry.setIndex(  );
     
     
@@ -2228,7 +2245,7 @@ g3dComplex.Polygon.virtual = true;
 g3d.Polygon = async (args, env) => {
   var geometry;
   let material;
-
+  
 
     geometry = new THREE.BufferGeometry();
     let points = await interpretate(args[0], env);
@@ -2504,7 +2521,7 @@ g3dComplex.Line = async (args, env) => {
     }
     
 
-    geometry.setIndex( a.flat().map((e)=>e-1) );
+    geometry.setIndex( a.flatMap((e)=>e-1) );
    
     //geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
 
@@ -2717,11 +2734,24 @@ g3d.Large = (args, env) => {
   return 1.0;
 };
 
+g3d.Medium = (args, env) => {
+  return 0.7;
+};
+
+g3d.Small = (args, env) => {
+  return 0.4;
+};
+
 const setImageSize = async (options, env) => {
 let ImageSize;
 
 if (options.ImageSize) {
   ImageSize = await interpretate(options.ImageSize, env);
+  if (typeof ImageSize == 'number') {
+    if (ImageSize < 10) {
+      ImageSize = core.DefaultWidth * 2 * ImageSize;
+    }
+  }
   if (!(ImageSize instanceof Array)) ImageSize = [ImageSize, ImageSize*0.618034];
 } else if (env.imageSize) {
   if (Array.isArray(env.imageSize)) {
