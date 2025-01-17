@@ -45,12 +45,6 @@ Custom lighting, mesh materials, shadows propeties are provided
 ## Docs?
 See [HERE](https://jerryi.github.io/wljs-docs/frontend/Reference/Graphics3D/)
 
-## Contributing
-
-Please feel encouraged to contribute and expand features.
-
-![](imgs/screenshot(16).png)
-
 ## License
 
 Project is released under the GNU General Public License (GPL).

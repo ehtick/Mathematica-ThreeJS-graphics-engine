@@ -1,13 +1,15 @@
 {
   "name": "wljs-graphics3d-threejs",
-  "version": "0.3.5",
+  "version": "0.6.1",
   "description": "A ThreeJS implementation of Mathematica's Graphics3D",
   "wljs-meta": {
     "js": "dist/kernel.js",
     "minjs": "dist/kernel.min.js",
     "kernel": "src/Kernel.wl",
     "styles": "src/styles.css",
-    "category": "Plotting & Graphics"
+    "category": "Plotting & Graphics",
+    "figureExportRequired": true,
+    "cellExportRequired": true
   },
   "defaultPackage": true,
   "repository": {
@@ -22,10 +24,7 @@
   "homepage": "https://github.com/JerryI/Mathematica-ThreeJS-graphics-engine#readme",
   "dependencies": {
     "@fantasy-color/lab-to-rgb": "^2.1.0",
-    "dat.gui": "^0.7.9",
-    "node-sass": "^9.0.0",
-    "three-gpu-pathtracer": "^0.0.16",
-    "three-mesh-bvh": "^0.6.8"
+    "dat.gui": "^0.7.9"
   },
   "devDependencies": {
     "@lookingglass/webxr": "^0.3.1",
@@ -41,7 +40,6 @@
     "pixelmatch": "^5.3.0",
     "pngjs": "^6.0.0",
     "process": "^0.11.10",
-    "puppeteer": "^15.4.0",
     "rollup": "^2.70.0",
     "rollup-plugin-combine": "^2.1.1",
     "rollup-plugin-livereload": "^2.0.5",
@@ -50,7 +48,6 @@
     "yargs": "^17.5.1"
   },
   "peerDependencies": {
-    "three": "^0.160.0",
     "xatlas-web": "^0.1.0"
   },
   "scripts": {
@@ -62,6 +59,6 @@
     "screenshot-diff": "node ./scripts/regression-test.js",
     "lint": "eslint \"./src/**/*.{js,ts}\" \"./example/*.js\"",
     "prepublishOnly": "npm run build",
-    "restore": "mkdir _temp && cd _temp && git clone https://github.com/JerryI/Mathematica-ThreeJS-graphics-engine && mv Mathematica-ThreeJS-graphics-engine/.git ../.git && cd .. && rm -rf _temp"
+    "restore": "mkdir _temp && cd _temp && git clone --branch dev https://github.com/JerryI/Mathematica-ThreeJS-graphics-engine && mv Mathematica-ThreeJS-graphics-engine/.git ../.git && cd .. && rm -rf _temp"
   }
 }
